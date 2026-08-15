@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    QryptIN — themes.xml
+    Base app theme (Material3 / compose-only, no XML color attrs needed)
+    The splash theme installs the native splash screen.
+-->
+<resources>
+
+    <!-- Base application theme -->
+    <style name="Theme.QryptIN" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Matches the default LIGHT color scheme background (Theme.kt)
+             so the window doesn't flash black before Compose's first frame.
+             Compose (QryptINTheme) takes over the real background/theming
+             immediately after that; this only covers the brief system
+             window-draw gap. -->
+        <item name="android:windowBackground">#FFF8FAFC</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Splash theme — applied to MainActivity until first frame is drawn -->
+    <style name="Theme.QryptIN.Splash" parent="Theme.SplashScreen">
+        <!-- Splash icon background -->
+        <item name="windowSplashScreenBackground">#0E1117</item>
+        <!-- Keep the splash until the app is ready (handled in MainActivity) -->
+        <item name="postSplashScreenTheme">@style/Theme.QryptIN</item>
+    </style>
+
+</resources>

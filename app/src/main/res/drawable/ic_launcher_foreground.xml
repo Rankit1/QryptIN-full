@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    QryptIN — ic_launcher_foreground.xml
+    Replace with your actual branded launcher icon.
+    Use Android Studio's Image Asset tool to generate all mipmap densities.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Green circle background -->
+    <path
+        android:fillColor="#2DC653"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+
+    <!-- "Q" letter mark — replace with final brand asset -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,34 C43.0,34 34,43 34,54 C34,65 43,74 54,74 C59.5,74 64.5,71.8 68.2,68.2 L71,71 L75,67 L72.2,64.2 C74.5,60.9 76,57.1 76,54 C76,43 67,34 54,34Z M54,70 C45.2,70 38,62.8 38,54 C38,45.2 45.2,38 54,38 C62.8,38 70,45.2 70,54 C70,57 69.1,59.8 67.6,62.1 L64.4,58.9 L60.4,62.9 L63.6,66.1 C61.3,68.5 57.8,70 54,70Z" />
+
+</vector>

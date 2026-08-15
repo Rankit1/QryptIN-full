@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+        Declared now so the manifest merge doesn't need revisiting once
+        CallViewModel / VideoCallScreen swap the mock connection state
+        machine for real audio/video capture. Unused by the current
+        skeleton — no runtime permission prompts are triggered yet.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+</manifest>
