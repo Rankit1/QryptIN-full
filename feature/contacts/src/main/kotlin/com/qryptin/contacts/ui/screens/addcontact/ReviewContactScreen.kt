@@ -99,7 +99,7 @@ fun ReviewContactScreen(
 
                     QryptPrimaryButton(
                         text      = "Save",
-                        onClick   = { viewModel.onSaveContact(); onSaved() },
+                        onClick   = { viewModel.onSaveContact() },
                         enabled   = !uiState.isSaving,
                         isLoading = uiState.isSaving,
                         modifier  = Modifier.fillMaxWidth(),

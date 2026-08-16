@@ -103,14 +103,19 @@ class AddContactViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _uiState.update { it.copy(isLookingUp = true, lookupError = null) }
             val state           = _uiState.value
-            val fullPhoneDigits = (state.selectedCountry.dial + state.phoneNumber)
-                .filter { it.isDigit() }
-            val match = repository.lookupQryptUser(fullPhoneDigits)
+            
+            // Standardize format to +XXXXXXXXXXXX (e.g. +918777014529) to match backend
+            val dial = state.selectedCountry.dial
+            val digits = state.phoneNumber.filter { it.isDigit() }
+            val fullPhone = "$dial$digits"
+            
+            val match = repository.lookupQryptUser(fullPhone)
             if (match != null) {
                 // ── Existing QryptIN user ──────────────────────
                 _uiState.update {
                     it.copy(
                         isLookingUp          = false,
+                        friendId             = match.id,
                         serverName           = match.name,
                         displayName          = match.name,
                         email                = match.email,
@@ -214,8 +219,14 @@ class AddContactViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, saveError = null) }
             val state     = _uiState.value
-            val fullPhone = "${state.selectedCountry.dial} ${state.phoneNumber}"
+            
+            // Standardize format to +XXXXXXXXXXXX (e.g. +918777014529) to match backend
+            val dial = state.selectedCountry.dial
+            val digits = state.phoneNumber.filter { it.isDigit() }
+            val fullPhone = "$dial$digits"
+            
             val success   = repository.saveExistingQryptContact(
+                friendId          = state.friendId,
                 phone             = fullPhone,
                 originalQryptName = state.serverName,
                 effectiveName     = state.displayName.ifBlank { state.serverName },
@@ -241,7 +252,11 @@ class AddContactViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, saveError = null) }
             val state     = _uiState.value
-            val fullPhone = "${state.selectedCountry.dial} ${state.phoneNumber}"
+            
+            // Standardize format to +XXXXXXXXXXXX (e.g. +918777014529) to match backend
+            val dial = state.selectedCountry.dial
+            val digits = state.phoneNumber.filter { it.isDigit() }
+            val fullPhone = "$dial$digits"
 
             val saved = repository.saveNonQryptContact(
                 phone        = fullPhone,
@@ -289,7 +304,11 @@ class AddContactViewModel(application: Application) : AndroidViewModel(applicati
     // ─────────────────────────────────────────────────────────
 
     val formattedPhone: String
-        get() = "${_uiState.value.selectedCountry.dial} ${_uiState.value.phoneNumber}"
+        get() {
+            val dial = _uiState.value.selectedCountry.dial
+            val digits = _uiState.value.phoneNumber.filter { it.isDigit() }
+            return "$dial$digits"
+        }
 
     val effectiveDisplayName: String
         get() = _uiState.value.displayName.ifBlank { _uiState.value.serverName }

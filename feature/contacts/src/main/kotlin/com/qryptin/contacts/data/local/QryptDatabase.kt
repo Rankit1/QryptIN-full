@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
 // ─────────────────────────────────────────────────────────────
 @Database(
     entities    = [ContactEntity::class],
-    version     = 1,
+    version     = 2,
     exportSchema = false,
 )
 abstract class QryptDatabase : RoomDatabase() {
@@ -32,7 +32,10 @@ abstract class QryptDatabase : RoomDatabase() {
                     context.applicationContext,
                     QryptDatabase::class.java,
                     DATABASE_NAME,
-                ).build().also { INSTANCE = it }
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
+                    .also { INSTANCE = it }
             }
     }
 }

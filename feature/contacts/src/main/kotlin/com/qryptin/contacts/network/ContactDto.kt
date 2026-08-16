@@ -3,15 +3,15 @@ package com.qryptin.contacts.network
 import com.google.gson.annotations.SerializedName
 
 data class ContactRequest(
-    @SerializedName("user_id")   val userId: String,
-    @SerializedName("friend_id") val friendId: String
+    val userId: String,
+    val friendId: String
 )
 
 data class ContactResponse(
-    @SerializedName("id")         val id: Long,
+    @SerializedName("id")         val id: String, // Changed from Long to String for UUID
     @SerializedName("user_id")    val userId: String,
     @SerializedName("friend_id")  val friend_id: String,
-    @SerializedName("created_at") val addedAt: Long,
+    @SerializedName("created_at") val addedAt: String, // Changed from Long to String for timestamp string
     @SerializedName("friendProfile") val friendProfile: UserProfileResponse? = null
 )
 

@@ -37,7 +37,7 @@ fun ChatSearchScreen(
     onResultClick  : (chatId: String) -> Unit,
     viewModel      : ChatSearchViewModel = viewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.fullUiState.collectAsState()
     val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }

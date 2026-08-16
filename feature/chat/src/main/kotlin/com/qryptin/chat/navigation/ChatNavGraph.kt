@@ -112,7 +112,7 @@ fun NavGraphBuilder.chatGraph(
                 if (contact != null) {
                     scope.launch {
                         val chat = chatRepository.getOrCreateDirectChat(
-                            contactId   = contact.id,
+                            contactId   = contact.friendId ?: contact.phone,
                             contactName = contact.displayName,
                             avatarUrl   = contact.avatarUrl,
                         )

@@ -95,7 +95,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<AuthUiState> = _uiState
 
     // ── Derived ───────────────────────────────────────────────
-    val fullPhone: String get() = "${selectedCountry.dial}${phoneNumber.trim()}"
+    val fullPhone: String get() {
+        val dial = selectedCountry.dial
+        val digits = phoneNumber.trim().filter { it.isDigit() }
+        return "$dial$digits"
+    }
     val isPhoneValid: Boolean get() = phoneNumber.trim().length >= 7
 
     // ─────────────────────────────────────────────────────────
@@ -124,10 +128,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             delay(900) // simulate the "sending OTP..." network call
-            authRepository.requestOtp(fullPhone)
-            startResendTimer()
-            _uiState.value = AuthUiState.Success
-            onSent()
+            
+            val result = authRepository.requestOtp(fullPhone)
+            
+            result.onSuccess {
+                startResendTimer()
+                _uiState.value = AuthUiState.Success
+                onSent()
+            }.onFailure { e ->
+                _uiState.value = AuthUiState.Idle
+                phoneError = e.message ?: "Failed to send OTP. Please try again."
+                android.util.Log.e("AuthViewModel", "OTP Request Failed for $fullPhone", e)
+            }
         }
     }
 

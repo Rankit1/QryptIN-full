@@ -103,7 +103,7 @@ fun ReviewNonQryptINContactScreen(
 
                     QryptPrimaryButton(
                         text      = "Save & Invite",
-                        onClick   = { viewModel.onSaveNonQryptINContact(); onSaved() },
+                        onClick   = { viewModel.onSaveNonQryptINContact() },
                         enabled   = !uiState.isSaving,
                         isLoading = uiState.isSaving,
                         modifier  = Modifier.fillMaxWidth(),

@@ -28,6 +28,7 @@ interface ContactsRepository {
     fun observeContacts(): Flow<List<Contact>>
     suspend fun lookupQryptUser(fullPhoneDigits: String): QryptUser?
     suspend fun saveExistingQryptContact(
+        friendId: String?,
         phone: String,
         originalQryptName: String,
         effectiveName: String,
@@ -55,6 +56,7 @@ interface ContactsRepository {
     
     // New methods from backend integration
     suspend fun loadContactsFromServer(userId: String): Boolean
+    suspend fun checkContactExists(userId: String, friendId: String): Boolean
 }
 
 class RoomContactsRepository(context: Context) : ContactsRepository {
@@ -69,6 +71,7 @@ class RoomContactsRepository(context: Context) : ContactsRepository {
         directory.lookupByPhone(fullPhoneDigits)
 
     override suspend fun saveExistingQryptContact(
+        friendId          : String?,
         phone             : String,
         originalQryptName : String,
         effectiveName     : String,
@@ -76,12 +79,17 @@ class RoomContactsRepository(context: Context) : ContactsRepository {
         saveOption        : ContactSaveOption,
     ): Boolean {
         val nickname = effectiveName.takeIf { it.isNotBlank() && it != originalQryptName }
+        
+        // Ensure phone matches backend format (+91XXXXXXXXXX)
+        val cleanedPhone = if (phone.startsWith("+")) phone.replace(" ", "") else "+91${phone.replace(" ", "")}"
+
         dao.insert(
             ContactEntity(
+                friendId          = friendId,
                 displayName       = effectiveName.ifBlank { originalQryptName },
                 originalQryptName = originalQryptName,
                 nickname          = nickname,
-                phoneNumber       = phone,
+                phoneNumber       = cleanedPhone,
                 email             = email.ifBlank { null },
                 isQryptUser       = true,
                 saveMode          = saveOption.name,
@@ -165,8 +173,14 @@ class RoomContactsRepository(context: Context) : ContactsRepository {
         return false
     }
 
+    override suspend fun checkContactExists(userId: String, friendId: String): Boolean {
+        // Implementation will be in ContactsRepositoryImpl
+        return false
+    }
+
     private fun ContactEntity.toContact(): Contact = Contact(
         id          = id.toString(),
+        friendId    = friendId,
         displayName = displayName,
         phone       = phoneNumber,
         isOnQryptIN = isQryptUser,

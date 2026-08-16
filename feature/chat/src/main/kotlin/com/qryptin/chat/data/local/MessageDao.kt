@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface MessageDao {
 
+    // Get all messages for a specific conversation of the current user
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY timestamp ASC")
     fun observeMessages(conversationId: String): Flow<List<MessageEntity>>
 

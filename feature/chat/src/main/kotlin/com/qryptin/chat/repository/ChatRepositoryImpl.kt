@@ -1,5 +1,6 @@
 package com.qryptin.chat.repository
 
+import android.util.Base64
 import com.qryptin.chat.model.Attachment
 import com.qryptin.chat.model.Chat
 import com.qryptin.chat.model.Message
@@ -18,6 +19,7 @@ import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 class ChatRepositoryImpl(
     context: Context,
@@ -26,7 +28,7 @@ class ChatRepositoryImpl(
     private val wsManager: WebSocketManager = WebSocketManager()
 ) : ChatRepository {
 
-    private val localRepository = RoomChatRepository(context)
+    private val localRepository = RoomChatRepository(context, sessionRepository)
     private val gson = Gson()
     private val repositoryScope = CoroutineScope(Dispatchers.IO)
 
@@ -40,25 +42,71 @@ class ChatRepositoryImpl(
         val localMessage = localRepository.sendTextMessage(chatId, text, replyToMessageId)
         
         val userId = sessionRepository.currentUserId() ?: "me"
-        
-        // Real-time send via WebSocket
+        // Ensure receiverId is a clean UUID string
+        val receiverId = if (chatId.contains("-")) chatId else chatId.removePrefix("chat_").substringBefore("_")
+
+        // ── Standardize for Backend BYTEA columns ────────────────
+        // Backend expects Base64 strings for binary fields (message, encrypted_key, signature)
+        val base64Message = Base64.encodeToString(text.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+
+        // Real-time send via WebSocket (Strict Snake Case for Backend compatibility)
         try {
-            wsManager.sendMessage("{\"sender_id\": \"$userId\", \"receiver_id\": \"$chatId\", \"message\": \"$text\"}")
+            val wsPayload = JSONObject().apply {
+                put("sender_id", userId)
+                put("receiver_id", receiverId)
+                put("message", base64Message)
+                put("status", "SENT")
+                put("timestamp", System.currentTimeMillis())
+                put("created_at", System.currentTimeMillis())
+            }.toString()
             
-            // Also persist to backend
-            api.sendMessage(SendMessageRequest(senderId = userId, receiverId = chatId, message = text))
+            android.util.Log.d("ChatRepository", "Sending WS Payload to /app/chat.send: $wsPayload")
+            wsManager.sendMessage(wsPayload)
+            
+            // Also persist to backend via REST as a fallback
+            api.sendMessage(SendMessageRequest(
+                senderId = userId, 
+                receiverId = receiverId, 
+                message = base64Message,
+                status = "SENT"
+            ))
         } catch (e: Exception) {
-            // Log error
+            android.util.Log.e("ChatRepository", "Failed to send message to backend", e)
         }
         
         return localMessage
     }
 
-    override suspend fun receiveTextMessage(senderId: String, text: String): Message =
-        localRepository.receiveTextMessage(senderId, text)
+    override suspend fun receiveTextMessage(senderId: String, text: String): Message {
+        val ownerId = sessionRepository.currentUserId() ?: "me"
+        // When receiving from backend/ws, we may need to decode from Base64
+        val decodedText = try {
+            val decodedBytes = Base64.decode(text, Base64.DEFAULT)
+            String(decodedBytes, Charsets.UTF_8)
+        } catch (e: Exception) {
+            text // Fallback to raw text if not valid Base64
+        }
+        return localRepository.receiveTextMessage(senderId, decodedText, ownerId)
+    }
 
-    override suspend fun sendAttachmentMessage(chatId: String, type: MessageType, attachment: Attachment, caption: String?): Message =
-        localRepository.sendAttachmentMessage(chatId, type, attachment, caption)
+    override suspend fun sendAttachmentMessage(chatId: String, type: MessageType, attachment: Attachment, caption: String?): Message {
+        val localMessage = localRepository.sendAttachmentMessage(chatId, type, attachment, caption)
+        val receiverId = chatId.removePrefix("chat_").substringBefore("_")
+        val userId = sessionRepository.currentUserId() ?: "me"
+        
+        val displayMsg = "[Attachment: ${type.name}] ${caption ?: ""}"
+        val base64Message = Base64.encodeToString(displayMsg.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+
+        try {
+            api.sendMessage(SendMessageRequest(
+                senderId = userId,
+                receiverId = receiverId,
+                message = base64Message
+            ))
+        } catch (e: Exception) {}
+        
+        return localMessage
+    }
 
     override suspend fun markChatAsRead(chatId: String) = localRepository.markChatAsRead(chatId)
 
@@ -86,15 +134,26 @@ class ChatRepositoryImpl(
 
     // Integration helpers
     fun connectWebSocket(userId: String) {
+        android.util.Log.d("ChatRepository", "Connecting WebSocket for user: $userId to ${com.qryptin.auth.network.NetworkConfig.WS_URL}")
         wsManager.connect()
         wsManager.subscribeToChat(userId) { jsonMessage ->
+            android.util.Log.d("ChatRepository", "Received WebSocket message for $userId: $jsonMessage")
             try {
                 val message = gson.fromJson(jsonMessage, MessageResponse::class.java)
-                repositoryScope.launch {
-                    localRepository.receiveTextMessage(message.senderId, message.message)
+                val senderId = message.realSenderId
+                val content = message.realMessage
+                
+                android.util.Log.d("ChatRepository", "Parsed message from $senderId: $content")
+
+                if (senderId.isNotBlank()) {
+                    repositoryScope.launch {
+                        receiveTextMessage(senderId, content)
+                    }
+                } else {
+                    android.util.Log.w("ChatRepository", "Received message with empty senderId")
                 }
             } catch (e: Exception) {
-                // Log error
+                android.util.Log.e("ChatRepository", "Failed to parse incoming WS message: $jsonMessage", e)
             }
         }
     }

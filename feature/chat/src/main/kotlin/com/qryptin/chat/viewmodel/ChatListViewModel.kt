@@ -9,60 +9,59 @@ import com.qryptin.chat.model.ChatListFilter
 import com.qryptin.chat.model.ChatListUiState
 import com.qryptin.chat.repository.ChatRepository
 import com.qryptin.core.search.SmartSearch
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 // ─────────────────────────────────────────────────────────────
 //  ChatListViewModel
 //  Uses ChatRepository — all data persists locally and syncs with backend.
 // ─────────────────────────────────────────────────────────────
+@OptIn(FlowPreview::class)
 class ChatListViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: ChatRepository = ChatModule.provideChatRepository(application)
 
-    private val _uiState = MutableStateFlow(ChatListUiState())
-    val uiState: StateFlow<ChatListUiState> = _uiState.asStateFlow()
+    /** Immediate, ungated query — this is what the TextField is bound to. */
+    private val rawSearchQuery = MutableStateFlow("")
 
-    private var allChats: List<Chat> = emptyList()
+    private val _selectedFilter = MutableStateFlow(ChatListFilter.ALL)
+    private val _isLoading = MutableStateFlow(true)
+    private val _isFabMenuOpen = MutableStateFlow(false)
+    private val _selectedChatIds = MutableStateFlow(emptySet<String>())
 
-    init {
-        observeChats()
-    }
+    private val allChats: StateFlow<List<Chat>> =
+        repository.observeChats()
+            .onEach { _isLoading.value = false }
+            .catch { _isLoading.value = false; emit(emptyList()) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private fun observeChats() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            repository.observeChats().collectLatest { chats ->
-                allChats = chats
-                applyFilters()
-            }
-        }
-    }
+    /** Debounced *only* for the filtering pass — never bound to the TextField directly. */
+    private val debouncedQueryForFiltering: Flow<String> =
+        rawSearchQuery.debounce(200).onStart { emit(rawSearchQuery.value) }
 
-    // ── Search + filter ───────────────────────────────────────
+    val uiState: StateFlow<ChatListUiState> = combine(
+        allChats,
+        _selectedFilter,
+        rawSearchQuery,
+        debouncedQueryForFiltering,
+        _isLoading,
+        _isFabMenuOpen,
+        _selectedChatIds
+    ) { args: Array<Any> ->
+        val chats = args[0] as List<Chat>
+        val filter = args[1] as ChatListFilter
+        val displayedQuery = args[2] as String
+        val filterQuery = args[3] as String
+        val loading = args[4] as Boolean
+        val fabOpen = args[5] as Boolean
+        val selectedIds = args[6] as Set<String>
 
-    fun onSearchQueryChanged(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
-        applyFilters()
-    }
-
-    fun onFilterSelected(filter: ChatListFilter) {
-        _uiState.update { it.copy(selectedFilter = filter) }
-        applyFilters()
-    }
-
-    private fun applyFilters() {
-        val state = _uiState.value
-        val query = state.searchQuery.trim()
-
-        val filtered = allChats
+        val query = filterQuery.trim()
+        val filtered = chats
             .filterNot { it.isArchived }
             .filter { chat ->
-                when (state.selectedFilter) {
+                when (filter) {
                     ChatListFilter.ALL    -> true
                     ChatListFilter.UNREAD -> chat.unreadCount > 0
                     ChatListFilter.GROUPS -> chat.isGroup
@@ -71,32 +70,43 @@ class ChatListViewModel(application: Application) : AndroidViewModel(application
             }
             .filter { chat ->
                 query.isBlank() || SmartSearch.matches(query, chat.title) ||
-                    chat.lastMessage?.text?.contains(query, ignoreCase = true) == true
+                        chat.lastMessage?.text?.contains(query, ignoreCase = true) == true
             }
 
-        _uiState.update { it.copy(chats = filtered, isLoading = false) }
+        ChatListUiState(
+            chats          = filtered,
+            searchQuery    = displayedQuery,
+            selectedFilter = filter,
+            isLoading      = loading,
+            isFabMenuOpen  = fabOpen,
+            selectedChatIds = selectedIds,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatListUiState(isLoading = true))
+
+    fun onSearchQueryChanged(query: String) {
+        rawSearchQuery.value = query
+    }
+
+    fun onFilterSelected(filter: ChatListFilter) {
+        _selectedFilter.value = filter
     }
 
     // ── FAB menu ───────────────────────────────────────────────
 
-    fun onFabClick()     = _uiState.update { it.copy(isFabMenuOpen = true) }
-    fun dismissFabMenu() = _uiState.update { it.copy(isFabMenuOpen = false) }
+    fun onFabClick()     = _isFabMenuOpen.update { true }
+    fun dismissFabMenu() = _isFabMenuOpen.update { false }
 
     // ── Long-press multi-select + swipe actions ────────────────
 
     fun onChatLongPressed(chatId: String) {
-        _uiState.update { it.copy(selectedChatIds = it.selectedChatIds + chatId) }
+        _selectedChatIds.update { it + chatId }
     }
 
     fun onChatSelectionToggled(chatId: String) {
-        _uiState.update { state ->
-            val updated = if (chatId in state.selectedChatIds) state.selectedChatIds - chatId
-                          else state.selectedChatIds + chatId
-            state.copy(selectedChatIds = updated)
-        }
+        _selectedChatIds.update { if (chatId in it) it - chatId else it + chatId }
     }
 
-    fun clearSelection() = _uiState.update { it.copy(selectedChatIds = emptySet()) }
+    fun clearSelection() = _selectedChatIds.update { emptySet() }
 
     fun togglePin(chatId: String)   = viewModelScope.launch { repository.togglePin(chatId) }
     fun toggleMute(chatId: String)  = viewModelScope.launch { repository.toggleMute(chatId) }
@@ -104,7 +114,7 @@ class ChatListViewModel(application: Application) : AndroidViewModel(application
     fun deleteChat(chatId: String)  = viewModelScope.launch { repository.deleteChatLocally(chatId) }
 
     fun applyBulkAction(action: (String) -> Unit) {
-        uiState.value.selectedChatIds.forEach(action)
+        _selectedChatIds.value.forEach(action)
         clearSelection()
     }
 }

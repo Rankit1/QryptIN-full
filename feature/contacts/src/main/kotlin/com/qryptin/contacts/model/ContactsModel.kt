@@ -15,7 +15,8 @@ import java.util.Locale
  * a future profile-photo / QryptIN-avatar feature.
  */
 data class Contact(
-    val id           : String,
+    val id           : String,           // Local Room primary key (Long as String)
+    val friendId     : String? = null,   // Backend UUID (mandatory for QryptIN users)
     val displayName  : String,
     val phone        : String,
     val avatarUrl    : String? = null,

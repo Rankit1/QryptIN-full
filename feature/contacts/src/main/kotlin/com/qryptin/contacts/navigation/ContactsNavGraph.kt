@@ -149,7 +149,6 @@ fun NavGraphBuilder.contactsGraph(
                     inclusive = false,
                 )
             },
-            onNext = { /* navigation handled via navEvent */ },
         )
     }
 
@@ -178,7 +177,6 @@ fun NavGraphBuilder.contactsGraph(
                     inclusive = false,
                 )
             },
-            onNext = { /* navigation handled via navEvent */ },
         )
     }
 

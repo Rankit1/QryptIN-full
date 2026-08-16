@@ -7,10 +7,10 @@ object NetworkConfig {
     /**
      * The host and port for the backend server.
      * 
-     * - Use "10.0.2.2:8080" for the Android Emulator to connect to localhost.
-     * - Use your machine's local IP (e.g., "192.168.x.x:8080") when testing on a physical device.
+     * - Use "10.0.2.2:8081" for the Android Emulator to connect to localhost.
+     * - Use your machine's local IP (e.g., "192.168.1.x:8081") when testing on a physical device.
      */
-    private const val HOST = "192.168.0.158:8080"
+    private const val HOST = "192.168.1.6:8081"
 
     /**
      * Base URL for REST API calls.
@@ -19,6 +19,8 @@ object NetworkConfig {
 
     /**
      * WebSocket URL for STOMP connection.
+     * Note: We use "http" for the library as it handles the upgrade to "ws".
+     * If /ws fails with 404, the WebSocketManager will try common fallbacks.
      */
-    const val WS_URL = "ws://$HOST/ws"
+    const val WS_URL = "http://$HOST/ws"
 }

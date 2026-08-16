@@ -89,7 +89,8 @@ class FirebaseAuthRepository : AuthRepository {
                                     phoneNumber = phone,
                                     fullName    = name,
                                     id          = firebaseUid,
-                                    bio         = ""
+                                    bio         = "",
+                                    publicKey   = "stub_key_" + System.currentTimeMillis()
                                 )
                             )
                         } catch (e: Exception) {

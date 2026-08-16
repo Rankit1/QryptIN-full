@@ -22,6 +22,9 @@ data class AddContactUiState(
     /** True once a lookup completes and the number IS on QryptIN. */
     val isExistingQryptINUser: Boolean    = false,
 
+    /** Backend UUID of the found friend (null if not found/mock). */
+    val friendId            : String?     = null,
+
     // ── Contact details (populated after lookup for existing user) ──
     val serverName          : String      = "",   // name returned by QryptIN server (immutable)
     val displayName         : String      = "",   // local / nickname — what user sees/edits

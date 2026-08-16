@@ -36,7 +36,6 @@ fun AddNonQryptINContactScreen(
     viewModel : AddContactViewModel,
     onBack    : () -> Unit,
     onCancel  : () -> Unit,
-    onNext    : () -> Unit,
 ) {
     val uiState   by viewModel.uiState.collectAsState()
     val nameFocus  = remember { FocusRequester() }
@@ -84,7 +83,7 @@ fun AddNonQryptINContactScreen(
             ) {
                 QryptPrimaryButton(
                     text     = "Next",
-                    onClick  = { viewModel.onProceedToNonQryptINReview(); onNext() },
+                    onClick  = { viewModel.onProceedToNonQryptINReview() },
                     enabled  = canProceed,
                     modifier = Modifier
                         .fillMaxWidth()

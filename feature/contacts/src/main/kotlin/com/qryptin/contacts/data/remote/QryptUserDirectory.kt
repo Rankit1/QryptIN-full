@@ -12,6 +12,7 @@ import org.json.JSONArray
 //  A single record from the simulated global QryptIN registry.
 // ─────────────────────────────────────────────────────────────
 data class QryptUser(
+    val id    : String? = null,
     val name  : String,
     val phone : String,
     val email : String,
@@ -52,6 +53,7 @@ class QryptUserDirectory(context: Context) {
                         val obj = array.getJSONObject(i)
                         add(
                             QryptUser(
+                                id    = obj.optString("id").takeIf { it.isNotBlank() },
                                 name  = obj.optString("name"),
                                 phone = obj.optString("phone"),
                                 email = obj.optString("email"),

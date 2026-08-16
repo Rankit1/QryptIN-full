@@ -16,6 +16,9 @@ data class ContactEntity(
     @PrimaryKey(autoGenerate = true)
     val id               : Long    = 0L,
 
+    /** Backend UUID of the friend (null for non-QryptIN users or local-only entries). */
+    val friendId         : String? = null,
+
     /** The name actually shown in the contacts list (nickname if set, else the registered/typed name). */
     val displayName      : String,
 

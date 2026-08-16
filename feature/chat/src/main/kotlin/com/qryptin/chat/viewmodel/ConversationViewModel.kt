@@ -33,24 +33,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     private var currentChatId: String? = null
 
     init {
-        viewModelScope.launch {
-            val db = ChatDatabase.getInstance(getApplication())  // use getApplication() not context
-            db.messageDao().insert(
-                MessageEntity(
-                    messageId      = "test_001",
-                    conversationId = "conv_001",
-                    senderId       = "user_alice",
-                    receiverId     = "user_bob",
-                    senderName     = "Alice",
-                    messageType    = "TEXT",
-                    text           = "Hello Room DB test",
-                    timestamp      = System.currentTimeMillis(),
-                    deliveryState  = "SENT",
-                    isOutgoing     = true
-                )
-            )
-            android.util.Log.d("RoomTest", "Message inserted successfully")
-        }
+        // ViewModel initialized
     }
 
     fun load(chatId: String) {

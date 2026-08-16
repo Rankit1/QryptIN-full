@@ -14,6 +14,9 @@ data class ConversationEntity(
     @PrimaryKey
     val id               : String,
 
+    /** Backend UUID of the owner of this local conversation copy. */
+    val ownerId          : String = "me",
+
     /** "DIRECT" or "GROUP" */
     val type             : String,
 

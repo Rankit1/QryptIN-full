@@ -93,7 +93,7 @@ private fun MainNavHost(onLogout: () -> Unit) {
             onChatClick   = { contact ->
                 scope.launch {
                     val chat = chatRepository.getOrCreateDirectChat(
-                        contactId   = contact.id,
+                        contactId   = contact.friendId ?: contact.phone,
                         contactName = contact.displayName,
                         avatarUrl   = contact.avatarUrl,
                     )

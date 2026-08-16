@@ -35,7 +35,6 @@ fun AddExistingQryptINContactScreen(
     viewModel : AddContactViewModel,
     onBack    : () -> Unit,
     onCancel  : () -> Unit,
-    onNext    : () -> Unit,
 ) {
     val uiState       by viewModel.uiState.collectAsState()
     val nameFocus      = remember { FocusRequester() }
@@ -85,7 +84,7 @@ fun AddExistingQryptINContactScreen(
             ) {
                 QryptPrimaryButton(
                     text     = "Next",
-                    onClick  = { viewModel.onProceedToReview(); onNext() },
+                    onClick  = { viewModel.onProceedToReview() },
                     enabled  = uiState.displayName.isNotBlank() || uiState.serverName.isNotBlank(),
                     modifier = Modifier
                         .fillMaxWidth()

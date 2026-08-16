@@ -12,16 +12,23 @@ data class SendMessageRequest(
 )
 
 data class MessageResponse(
-    @SerializedName("id")            val id: Long,
-    @SerializedName("sender_id")     val senderId: String,
-    @SerializedName("receiver_id")   val receiverId: String,
-    @SerializedName("message")       val message: String,
-    @SerializedName("encrypted_key") val encryptedKey: String?,
-    @SerializedName("signature")     val signature: String?,
-    @SerializedName("status")        val status: String, // SENT, DELIVERED, READ
-    @SerializedName("timestamp")     val timestamp: Long,
-    @SerializedName("created_at")    val createdAt: Long
-)
+    @SerializedName("id")            val id: String?,
+    @SerializedName("senderId")      val senderId: String?,
+    @SerializedName("sender_id")     val sender_id: String?,
+    @SerializedName("receiverId")    val receiverId: String?,
+    @SerializedName("receiver_id")   val receiver_id: String?,
+    @SerializedName("message")       val message: String?,
+    @SerializedName("encryptedKey")  val encryptedKey: String? = null,
+    @SerializedName("encrypted_key") val encrypted_key: String? = null,
+    @SerializedName("signature")     val signature: String? = null,
+    @SerializedName("status")        val status: String? = "SENT",
+    @SerializedName("timestamp")     val timestamp: Any? = null,
+    @SerializedName("created_at")    val createdAt: Any? = null
+) {
+    val realSenderId: String get() = senderId ?: sender_id ?: ""
+    val realReceiverId: String get() = receiverId ?: receiver_id ?: ""
+    val realMessage: String get() = message ?: ""
+}
 
 data class InboxItemResponse(
     @SerializedName("user_id")       val userId: String,
