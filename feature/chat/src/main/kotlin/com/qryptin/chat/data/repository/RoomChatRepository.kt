@@ -32,19 +32,22 @@ class RoomChatRepository(
     private val conversationDao = db.conversationDao()
     private val messageDao      = db.messageDao()
 
-    /** Reactive stream of the current user's UUID. Defaults to "me" if not logged in. */
+    /** Reactive stream of the current user's UUID. */
     private val currentUserIdFlow: Flow<String> = sessionRepository?.let { repo ->
         repo.isLoggedIn.flatMapLatest { loggedIn ->
             if (loggedIn) {
-                flow { emit(repo.currentUserId() ?: "me") }
+                flow { 
+                    val id = repo.currentUserId()
+                    if (id != null) emit(id)
+                }
             } else {
-                flowOf("me")
+                flowOf("")
             }
         }
-    } ?: flowOf("me")
+    } ?: flowOf("")
 
-    private suspend fun getCurrentUserId(): String {
-        return sessionRepository?.currentUserId() ?: "me"
+    private suspend fun getCurrentUserId(): String? {
+        return sessionRepository?.currentUserId()
     }
 
     // Per-conversation in-memory typing state — not persisted (intentionally ephemeral)
@@ -77,16 +80,10 @@ class RoomChatRepository(
         text             : String,
         replyToMessageId : String?,
     ): Message {
-        val ownerId = getCurrentUserId()
-        // Standardize receiverId extraction:
-        // 1. If chatId is already a UUID (contains a hyphen), use it as is.
-        // 2. If it follows the old 'chat_ID_time' format, extract the ID segment.
-        // 3. Otherwise, use it as a fallback.
-        val receiverId = when {
-            chatId.contains("-") -> chatId
-            chatId.startsWith("chat_") -> chatId.removePrefix("chat_").substringBefore("_")
-            else -> chatId
-        }
+        val ownerId = getCurrentUserId() ?: "me"
+        
+        // Use chatId directly if it's a UUID, otherwise the repository will handle mapping
+        val receiverId = if (chatId.contains("-")) chatId else chatId
         
         val entity = MessageEntity(
             messageId        = "msg_${UUID.randomUUID()}",
@@ -101,20 +98,26 @@ class RoomChatRepository(
             isOutgoing       = true,
             replyToMessageId = replyToMessageId,
         )
-        messageDao.insert(entity)
-        conversationDao.updateLastMessage(
-            conversationId = chatId,
-            ownerId        = ownerId,
-            text           = text,
-            timestamp      = entity.timestamp,
-            senderId       = ownerId,
-            type           = MessageType.TEXT.name,
-        )
+        
+        try {
+            android.util.Log.d("RoomChatRepository", "Inserting SENT message locally: ${entity.messageId} for chat: $chatId")
+            messageDao.insert(entity)
+            conversationDao.updateLastMessage(
+                conversationId = chatId,
+                ownerId        = ownerId,
+                text           = text,
+                timestamp      = entity.timestamp,
+                senderId       = ownerId,
+                type           = MessageType.TEXT.name,
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("RoomChatRepository", "FAILED to insert SENT message locally", e)
+        }
         return entity.toMessage()
     }
 
     override suspend fun receiveTextMessage(senderId: String, text: String): Message {
-        val ownerId = getCurrentUserId()
+        val ownerId = getCurrentUserId() ?: "me"
         return receiveTextMessage(senderId, text, ownerId)
     }
 
@@ -149,17 +152,22 @@ class RoomChatRepository(
             isOutgoing       = false,
         )
 
-        messageDao.insert(entity)
-        conversationDao.updateLastMessage(
-            conversationId = chatId,
-            ownerId        = ownerId,
-            text           = text,
-            timestamp      = entity.timestamp,
-            senderId       = senderId,
-            type           = MessageType.TEXT.name,
-        )
-        // Increment unread count for the receiver
-        conversationDao.incrementUnread(chatId, ownerId)
+        try {
+            android.util.Log.d("RoomChatRepository", "Inserting RECEIVED message: ${entity.messageId} from: $senderId into chat: $chatId")
+            messageDao.insert(entity)
+            conversationDao.updateLastMessage(
+                conversationId = chatId,
+                ownerId        = ownerId,
+                text           = text,
+                timestamp      = entity.timestamp,
+                senderId       = senderId,
+                type           = MessageType.TEXT.name,
+            )
+            // Increment unread count for the receiver
+            conversationDao.incrementUnread(chatId, ownerId)
+        } catch (e: Exception) {
+            android.util.Log.e("RoomChatRepository", "FAILED to insert RECEIVED message", e)
+        }
         return entity.toMessage()
     }
 
@@ -169,7 +177,7 @@ class RoomChatRepository(
         attachment : Attachment,
         caption    : String?,
     ): Message {
-        val ownerId = getCurrentUserId()
+        val ownerId = getCurrentUserId() ?: "me"
         val receiverId = when {
             chatId.contains("-") -> chatId
             chatId.startsWith("chat_") -> chatId.removePrefix("chat_").substringBefore("_")
@@ -206,7 +214,7 @@ class RoomChatRepository(
     // ── Chat-level mutations ──────────────────────────────────
 
     override suspend fun markChatAsRead(chatId: String) {
-        conversationDao.clearUnread(chatId, getCurrentUserId())
+        conversationDao.clearUnread(chatId, getCurrentUserId() ?: "me")
     }
 
     override suspend fun setLocalTyping(chatId: String, isTyping: Boolean) {
@@ -231,26 +239,26 @@ class RoomChatRepository(
     }
 
     override suspend fun togglePin(chatId: String) {
-        val ownerId = getCurrentUserId()
+        val ownerId = getCurrentUserId() ?: "me"
         val conv = conversationDao.getById(chatId, ownerId) ?: return
         conversationDao.setPin(chatId, ownerId, !conv.isPinned)
     }
 
     override suspend fun toggleMute(chatId: String) {
-        val ownerId = getCurrentUserId()
+        val ownerId = getCurrentUserId() ?: "me"
         val conv = conversationDao.getById(chatId, ownerId) ?: return
         conversationDao.setMute(chatId, ownerId, !conv.isMuted)
     }
 
     override suspend fun toggleArchive(chatId: String) {
-        val ownerId = getCurrentUserId()
+        val ownerId = getCurrentUserId() ?: "me"
         val conv = conversationDao.getById(chatId, ownerId) ?: return
         conversationDao.setArchive(chatId, ownerId, !conv.isArchived)
     }
 
     override suspend fun deleteChatLocally(chatId: String) {
         messageDao.deleteAllForConversation(chatId)
-        conversationDao.deleteById(chatId, getCurrentUserId())
+        conversationDao.deleteById(chatId, getCurrentUserId() ?: "me")
     }
 
     // ── Creation ──────────────────────────────────────────────
@@ -260,7 +268,7 @@ class RoomChatRepository(
         contactName : String,
         avatarUrl   : String?,
     ): Chat {
-        val ownerId = getCurrentUserId()
+        val ownerId = getCurrentUserId() ?: "me"
         val existing = conversationDao.findDirectChat(contactId, ownerId)
         if (existing != null) return existing.toChat()
 
@@ -282,7 +290,7 @@ class RoomChatRepository(
         participantIds : List<String>,
         avatarUri      : String?,
     ): Chat {
-        val ownerId = getCurrentUserId()
+        val ownerId = getCurrentUserId() ?: "me"
         val idsJson = participantIds.joinToString(",", "[", "]") { "\"$it\"" }
         val entity = ConversationEntity(
             id                  = "chat_group_${UUID.randomUUID()}",

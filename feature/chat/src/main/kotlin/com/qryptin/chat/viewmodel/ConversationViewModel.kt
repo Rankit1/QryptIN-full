@@ -10,6 +10,7 @@ import com.qryptin.chat.model.ConversationUiState
 import com.qryptin.chat.model.Message
 import com.qryptin.chat.model.MessageType
 import com.qryptin.chat.repository.ChatRepository
+import com.qryptin.chat.repository.ChatRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,6 +44,14 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
 
         viewModelScope.launch {
             repository.markChatAsRead(chatId)
+        }
+
+        // Ensure WebSocket is connected and subscribed to the CURRENT user
+        viewModelScope.launch {
+            val sessionRepo = com.qryptin.auth.AuthModule.provideSessionRepository(getApplication())
+            sessionRepo.currentUserId()?.let { userId ->
+                (repository as? ChatRepositoryImpl)?.connectWebSocket(userId)
+            }
         }
 
         viewModelScope.launch {

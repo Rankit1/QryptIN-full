@@ -18,6 +18,7 @@ class WebSocketManager {
     private var lifecycleDisposable: Disposable? = null
     private var isConnected = false
     private var currentUserId: String? = null
+    private var onMessageReceivedCallback: ((String) -> Unit)? = null
 
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -58,7 +59,7 @@ class WebSocketManager {
                         isConnected = true
                         connectionAttempts = 0 // Reset on success
                         // Re-subscribe if we were already waiting for a user
-                        currentUserId?.let { subscribeToChat(it) } 
+                        currentUserId?.let { subscribeToChat(it, onMessageReceivedCallback ?: {}) }
                     }
                     LifecycleEvent.Type.ERROR -> {
                         val exception = lifecycleEvent.exception
@@ -102,6 +103,9 @@ class WebSocketManager {
 
     fun subscribeToChat(userId: String, onMessageReceived: (String) -> Unit = {}) {
         this.currentUserId = userId
+        if (onMessageReceived != {}) {
+            this.onMessageReceivedCallback = onMessageReceived
+        }
         topicDisposable?.dispose()
         
         if (stompClient == null || !isConnected) {

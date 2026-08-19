@@ -41,37 +41,42 @@ class ChatRepositoryImpl(
     override suspend fun sendTextMessage(chatId: String, text: String, replyToMessageId: String?): Message {
         val localMessage = localRepository.sendTextMessage(chatId, text, replyToMessageId)
         
-        val userId = sessionRepository.currentUserId() ?: "me"
-        // Ensure receiverId is a clean UUID string
-        val receiverId = if (chatId.contains("-")) chatId else chatId.removePrefix("chat_").substringBefore("_")
+        val userId = sessionRepository.currentUserId() 
+        if (userId == null) {
+            android.util.Log.e("ChatRepository", "ABORT SEND: Current user ID is null. Stomp requires real UUID.")
+            return localMessage
+        }
 
         // ── Standardize for Backend BYTEA columns ────────────────
-        // Backend expects Base64 strings for binary fields (message, encrypted_key, signature)
         val base64Message = Base64.encodeToString(text.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
 
-        // Real-time send via WebSocket (Strict Snake Case for Backend compatibility)
+        // Real-time send via WebSocket (Strictly following provided JSON structure)
         try {
             val wsPayload = JSONObject().apply {
-                put("sender_id", userId)
-                put("receiver_id", receiverId)
+                put("senderId", userId)
+                put("receiverId", chatId) // chatId is the receiver UUID in QryptIN
                 put("message", base64Message)
-                put("status", "SENT")
                 put("timestamp", System.currentTimeMillis())
-                put("created_at", System.currentTimeMillis())
+                put("status", "SENT")
             }.toString()
             
             android.util.Log.d("ChatRepository", "Sending WS Payload to /app/chat.send: $wsPayload")
             wsManager.sendMessage(wsPayload)
             
-            // Also persist to backend via REST as a fallback
-            api.sendMessage(SendMessageRequest(
-                senderId = userId, 
-                receiverId = receiverId, 
-                message = base64Message,
-                status = "SENT"
-            ))
+            // Only use REST as fallback if WS send fails or is disconnected
+            // (Removed redundant immediate REST call to avoid double insertion)
         } catch (e: Exception) {
-            android.util.Log.e("ChatRepository", "Failed to send message to backend", e)
+            android.util.Log.e("ChatRepository", "Failed to send message via WebSocket, attempting REST fallback", e)
+            try {
+                api.sendMessage(SendMessageRequest(
+                    senderId = userId, 
+                    receiverId = chatId, 
+                    message = base64Message,
+                    status = "SENT"
+                ))
+            } catch (restEx: Exception) {
+                android.util.Log.e("ChatRepository", "REST fallback also failed", restEx)
+            }
         }
         
         return localMessage
@@ -146,8 +151,14 @@ class ChatRepositoryImpl(
                 android.util.Log.d("ChatRepository", "Parsed message from $senderId: $content")
 
                 if (senderId.isNotBlank()) {
+                    android.util.Log.d("ChatRepository", "Launching receiveTextMessage for $senderId with content length: ${content.length}")
                     repositoryScope.launch {
-                        receiveTextMessage(senderId, content)
+                        try {
+                            receiveTextMessage(senderId, content)
+                            android.util.Log.d("ChatRepository", "Successfully processed incoming message from $senderId")
+                        } catch (e: Exception) {
+                            android.util.Log.e("ChatRepository", "Error in receiveTextMessage for $senderId", e)
+                        }
                     }
                 } else {
                     android.util.Log.w("ChatRepository", "Received message with empty senderId")
