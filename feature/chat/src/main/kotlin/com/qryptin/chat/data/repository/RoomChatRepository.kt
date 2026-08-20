@@ -122,11 +122,13 @@ class RoomChatRepository(
     }
 
     suspend fun receiveTextMessage(senderId: String, text: String, ownerId: String): Message {
-        // Find existing conversation with this peer
-        val existing = conversationDao.findDirectChat(senderId, ownerId)
-        val chatId = existing?.id ?: senderId
+        // Find existing conversation with this peer. 
+        // We use the senderId (the other person's UUID) as the chatId for direct chats.
+        val existing = conversationDao.getById(senderId, ownerId)
+        val chatId = senderId 
         
         if (existing == null) {
+            android.util.Log.d("RoomChatRepository", "Creating new conversation for incoming message from $senderId (Owner: $ownerId)")
             conversationDao.insert(
                 ConversationEntity(
                     id = chatId,
@@ -148,12 +150,12 @@ class RoomChatRepository(
             messageType      = MessageType.TEXT.name,
             text             = text,
             timestamp        = System.currentTimeMillis(),
-            deliveryState    = MessageStatus.SENT.name,
+            deliveryState    = MessageStatus.DELIVERED.name, // Mark as delivered locally
             isOutgoing       = false,
         )
 
         try {
-            android.util.Log.d("RoomChatRepository", "Inserting RECEIVED message: ${entity.messageId} from: $senderId into chat: $chatId")
+            android.util.Log.d("RoomChatRepository", "PERSISTING message to Room. ChatId: $chatId, MsgId: ${entity.messageId}")
             messageDao.insert(entity)
             conversationDao.updateLastMessage(
                 conversationId = chatId,
@@ -166,7 +168,7 @@ class RoomChatRepository(
             // Increment unread count for the receiver
             conversationDao.incrementUnread(chatId, ownerId)
         } catch (e: Exception) {
-            android.util.Log.e("RoomChatRepository", "FAILED to insert RECEIVED message", e)
+            android.util.Log.e("RoomChatRepository", "CRITICAL ROOM FAILURE: Could not insert RECEIVED message", e)
         }
         return entity.toMessage()
     }
