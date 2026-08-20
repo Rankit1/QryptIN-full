@@ -21,8 +21,41 @@ class LocalUserRepository(
     private val userApi: com.qryptin.auth.network.UserApi = com.qryptin.auth.network.RetrofitClient.userApi
 ) : UserRepository {
 
-    override suspend fun findByPhone(phoneNumber: String): UserProfile? =
-        userDao.findByPhone(phoneNumber)?.toDomain()
+    override suspend fun findByPhone(phoneNumber: String): UserProfile? {
+        val local = userDao.findByPhone(phoneNumber)
+        if (local != null) return local.toDomain()
+
+        // Try backend if local not found (e.g. fresh install or re-login)
+        return try {
+            val response = userApi.getUserByPhone(phoneNumber)
+            if (response.isSuccessful) {
+                val remote = response.body() ?: return null
+                val now = System.currentTimeMillis()
+                
+                // Construct entity from backend response to persist locally
+                val entity = UserEntity(
+                    userId          = remote.id,
+                    qryptinId        = normalizeQryptinId(remote.fullName), // Fallback if backend doesn't provide qryptinId
+                    fullName          = remote.fullName,
+                    phoneNumber        = remote.phoneNumber,
+                    email                = null,
+                    bio                    = remote.bio ?: "",
+                    profilePhotoUri         = remote.profilePhoto,
+                    createdAt                = now,
+                    updatedAt                = now,
+                    isRegistered              = true,
+                    isVerified                  = true,
+                )
+                userDao.insert(entity)
+                entity.toDomain()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("LocalUserRepository", "Error looking up user on backend: $phoneNumber", e)
+            null
+        }
+    }
 
     override suspend fun findById(userId: String): UserProfile? =
         userDao.findById(userId)?.toDomain()

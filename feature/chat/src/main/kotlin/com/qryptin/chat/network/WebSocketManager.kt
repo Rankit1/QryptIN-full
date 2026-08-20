@@ -111,7 +111,7 @@ class WebSocketManager {
         // As per backend requirements, we ONLY subscribe to /topic/chat/$userId
         val topicPath = "/topic/chat/$userId"
         
-        Log.d("WebSocket", "Subscribing to: $topicPath")
+        Log.d("WebSocket", "SUBSCRIBING to topic: $topicPath (User UUID: $userId)")
 
         topicDisposable = stompClient?.topic(topicPath)
             ?.subscribeOn(Schedulers.io())

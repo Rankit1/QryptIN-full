@@ -179,6 +179,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                             foundUser     = phoneCheck.profile
                             pendingUserId = phoneCheck.profile.userId
                             userRepository.markVerified(phoneCheck.profile.userId)
+                            
+                            android.util.Log.d("AuthViewModel", "Starting session for EXISTING user: ${phoneCheck.profile.userId}")
                             sessionRepository.startSession(phoneCheck.profile.userId, fullPhone)
 
                             // Register current device with backend
@@ -299,6 +301,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     // shown (corrected flow: OTP -> DB check -> Register),
                     // so registration completes the login right here.
                     userRepository.markVerified(result.profile.userId)
+                    
+                    android.util.Log.d("AuthViewModel", "Starting session for NEWLY REGISTERED user: ${result.profile.userId}")
                     sessionRepository.startSession(result.profile.userId, fullPhone)
 
                     // Register current device with backend
