@@ -28,12 +28,7 @@ class WebSocketManager {
         .build()
 
     private var connectionAttempts = 0
-    private val urlFallbacks = listOf(
-        NetworkConfig.WS_URL,                // http://.../ws
-        "${NetworkConfig.WS_URL}/websocket", // http://.../ws/websocket
-        NetworkConfig.WS_URL.replace("http://", "ws://"), // ws://.../ws
-        "${NetworkConfig.WS_URL.replace("http://", "ws://")}/websocket" // ws://.../ws/websocket
-    )
+    private val urlFallbacks = listOf(NetworkConfig.WS_URL)
 
     fun connect(url: String? = null) {
         val targetUrl = url ?: urlFallbacks[connectionAttempts % urlFallbacks.size]

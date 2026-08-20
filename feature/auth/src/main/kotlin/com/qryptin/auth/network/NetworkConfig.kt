@@ -19,8 +19,7 @@ object NetworkConfig {
 
     /**
      * WebSocket URL for STOMP connection.
-     * Note: We use "http" for the library as it handles the upgrade to "ws".
-     * If /ws fails with 404, the WebSocketManager will try common fallbacks.
+     * Note: We use "ws" directly as the backend exposes the standard websocket endpoint.
      */
-    const val WS_URL = "http://$HOST/ws"
+    const val WS_URL = "ws://$HOST/ws"
 }
