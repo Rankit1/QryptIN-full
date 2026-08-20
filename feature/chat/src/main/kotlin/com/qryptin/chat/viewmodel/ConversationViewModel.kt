@@ -50,6 +50,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch {
             val sessionRepo = com.qryptin.auth.AuthModule.provideSessionRepository(getApplication())
             sessionRepo.currentUserId()?.let { userId ->
+                android.util.Log.d("ConversationViewModel", "Activating WebSocket for user: $userId")
                 (repository as? ChatRepositoryImpl)?.connectWebSocket(userId)
             }
         }

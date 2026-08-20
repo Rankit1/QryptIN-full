@@ -139,7 +139,8 @@ class ChatRepositoryImpl(
 
     // Integration helpers
     fun connectWebSocket(userId: String) {
-        android.util.Log.d("ChatRepository", "Connecting WebSocket for user: $userId to ${com.qryptin.auth.network.NetworkConfig.WS_URL}")
+        android.util.Log.i("ChatRepository", "INITIALIZING WEBSOCKET for UUID: $userId")
+        android.util.Log.d("ChatRepository", "Target URL: ${com.qryptin.auth.network.NetworkConfig.WS_URL}")
         wsManager.connect()
         wsManager.subscribeToChat(userId) { jsonMessage ->
             android.util.Log.d("ChatRepository", "Received WebSocket message for $userId: $jsonMessage")
