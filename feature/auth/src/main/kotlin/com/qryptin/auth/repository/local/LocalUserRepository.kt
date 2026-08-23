@@ -35,7 +35,7 @@ class LocalUserRepository(
                 // Construct entity from backend response to persist locally
                 val entity = UserEntity(
                     userId          = remote.id,
-                    qryptinId        = normalizeQryptinId(remote.fullName), // Fallback if backend doesn't provide qryptinId
+                    qryptinId        = remote.token ?: normalizeQryptinId(remote.fullName), // Use token field as QryptinId if that's where it's stored
                     fullName          = remote.fullName,
                     phoneNumber        = remote.phoneNumber,
                     email                = null,

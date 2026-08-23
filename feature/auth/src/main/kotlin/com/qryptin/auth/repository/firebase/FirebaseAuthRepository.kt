@@ -76,28 +76,6 @@ class FirebaseAuthRepository : AuthRepository {
 
             firebaseAuth.signInWithCredential(credential)
                 .addOnSuccessListener { authResult ->
-                    val firebaseUser = authResult.user
-                    val firebaseUid  = firebaseUser?.uid ?: ""
-                    val phone        = firebaseUser?.phoneNumber ?: phoneNumber
-                    val name         = pendingUserName.ifBlank { "User" }
-
-                    // Call backend in background
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            RetrofitClient.userApi.registerUser(
-                                RegisterRequest(
-                                    phoneNumber = phone,
-                                    fullName    = name,
-                                    id          = firebaseUid,
-                                    bio         = "",
-                                    publicKey   = "stub_key_" + System.currentTimeMillis()
-                                )
-                            )
-                        } catch (e: Exception) {
-                            // non-fatal — Firebase auth still succeeded
-                        }
-                    }
-
                     if (continuation.isActive) continuation.resume(Result.success(true))
                 }
                 .addOnFailureListener { e ->

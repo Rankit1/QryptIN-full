@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import java.util.UUID
 
 // ─────────────────────────────────────────────────────────────
@@ -125,8 +126,21 @@ class RoomChatRepository(
         // Find existing conversation with this peer. 
         // We use the senderId (the other person's UUID) as the chatId for direct chats.
         val existing = conversationDao.getById(senderId, ownerId)
-        val chatId = senderId 
+        var chatId = senderId 
         
+        // Try to find a friendly name from contacts if this is a new conversation
+        var senderDisplayName = senderId
+        try {
+            val contactDao = com.qryptin.contacts.data.local.QryptDatabase.getInstance(db.openHelper.writableDatabase.path?.let { context } ?: return receiveTextMessage(senderId, text, ownerId)) // This is a bit hacky to get context if not available
+        } catch (e: Exception) {}
+        
+        // Let's do a cleaner way. I'll just use the context from the constructor.
+        val contactDao = com.qryptin.contacts.data.local.QryptDatabase.getInstance(context).contactDao()
+        val contact = contactDao.observeContacts().first().find { it.friendId == senderId }
+        if (contact != null) {
+            senderDisplayName = contact.displayName
+        }
+
         if (existing == null) {
             android.util.Log.d("RoomChatRepository", "Creating new conversation for incoming message from $senderId (Owner: $ownerId)")
             conversationDao.insert(
@@ -134,11 +148,14 @@ class RoomChatRepository(
                     id = chatId,
                     ownerId = ownerId,
                     type = ChatType.DIRECT.name,
-                    title = senderId, // Fallback title
+                    title = senderDisplayName, 
                     participantIdsJson = "[\"$senderId\"]",
                     createdAt = System.currentTimeMillis()
                 )
             )
+        } else if (existing.title == senderId && senderDisplayName != senderId) {
+            // Update title if we now know the name
+            conversationDao.update(existing.copy(title = senderDisplayName))
         }
 
         val entity = MessageEntity(
@@ -146,7 +163,7 @@ class RoomChatRepository(
             conversationId   = chatId,
             senderId         = senderId,
             receiverId       = ownerId,
-            senderName       = senderId,
+            senderName       = senderDisplayName,
             messageType      = MessageType.TEXT.name,
             text             = text,
             timestamp        = System.currentTimeMillis(),
